@@ -243,7 +243,7 @@
       </div>
       <div class="field">
         <label>금액(원)</label>
-        <input type="text" id="inputAmount" inputmode="numeric" placeholder="예: 50000 (.키 입력 시 000 추가)">
+        <input type="text" id="inputAmount" inputmode="numeric" maxlength="12" placeholder="예: 50000 (.키 입력 시 000 추가)">
       </div>
       <div class="field">
         <button id="addBtn" style="width:100%">등록</button>
@@ -417,13 +417,15 @@
     nextNoLabel.textContent = getNextNo();
   }
 
+  const MAX_AMOUNT_DIGITS = 9; // 최대 999,999,999원
+
   function parseAmountDigits(str) {
-    const digits = String(str || '').replace(/[^0-9]/g, '');
+    const digits = String(str || '').replace(/[^0-9]/g, '').slice(0, MAX_AMOUNT_DIGITS);
     return digits ? Number(digits) : 0;
   }
 
   function handleAmountInput() {
-    const digits = inputAmount.value.replace(/[^0-9]/g, '');
+    const digits = inputAmount.value.replace(/[^0-9]/g, '').slice(0, MAX_AMOUNT_DIGITS);
     inputAmount.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
   }
 
@@ -431,7 +433,7 @@
     if (e.key !== '.') return;
     e.preventDefault();
     const digits = e.target.value.replace(/[^0-9]/g, '');
-    const next = digits + '000';
+    const next = digits.slice(0, MAX_AMOUNT_DIGITS - 3) + '000';
     e.target.value = Number(next).toLocaleString('ko-KR');
   }
 
@@ -531,9 +533,10 @@
     input.type = 'text';
     if (field === 'amount') {
       input.inputMode = 'numeric';
+      input.maxLength = 12;
       input.value = record[field] ? formatNumber(record[field]) : '';
       input.addEventListener('input', () => {
-        const digits = input.value.replace(/[^0-9]/g, '');
+        const digits = input.value.replace(/[^0-9]/g, '').slice(0, MAX_AMOUNT_DIGITS);
         input.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
       });
       input.addEventListener('keydown', handleAmountDotShortcut);
