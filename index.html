@@ -110,12 +110,26 @@
     display: inline-block;
   }
   .next-no b { color: var(--primary-dark); font-size: 14px; }
+  .undo-bar {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: #fff7e0;
+    border: 1px solid #f0dca0;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 13px;
+    color: #7a6320;
+  }
+  .undo-bar button { padding: 6px 12px; font-size: 12px; box-shadow: none; }
   td.editable-cell { cursor: pointer; transition: background .12s; }
   td.editable-cell:hover { background: #f1e4fa; }
   td.editable-cell input {
     width: 100%;
     text-align: inherit;
-    padding: 5px 6px;
+    padding: 2px 6px;
     border: 1.5px solid var(--primary);
     border-radius: 6px;
     font-size: 14px;
@@ -195,7 +209,7 @@
   }
   th, td {
     border-bottom: 1px solid var(--border);
-    padding: 11px 8px;
+    padding: 5px 8px;
     text-align: center;
   }
   th {
@@ -205,12 +219,17 @@
     position: sticky;
     top: 0;
   }
+  th[data-sort] { cursor: pointer; user-select: none; }
+  th[data-sort]:hover { background: #ddc4ef; }
+  th[data-sort].active { color: var(--accent); }
+  .sort-arrow { display: inline-block; width: 10px; font-size: 11px; }
   th:first-child { border-radius: 8px 0 0 0; }
   th:last-child { border-radius: 0 8px 0 0; }
   tbody tr { transition: background .12s; }
   tbody tr:nth-child(even) { background: #faf6fd; }
   tbody tr:hover { background: #f1e4fa; }
   td.amount { text-align: right; padding-right: 16px; font-weight: 600; color: var(--accent); }
+  td.name { font-weight: 700; }
   td.memo { text-align: left; color: var(--muted); }
   .empty { text-align: center; color: var(--muted); padding: 30px; font-size: 14px; }
   .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -224,7 +243,7 @@
 <body>
 
 <header>
-  <h1>축 의 대</h1>
+  <h1>ㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋㅋ</h1>
 </header>
 
 <div class="container">
@@ -235,7 +254,7 @@
     <div class="form-grid">
       <div class="field">
         <label>이름</label>
-        <input type="text" id="inputName" placeholder="하객 이름">
+        <input type="text" id="inputName" lang="ko" inputmode="text" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="하객 이름">
       </div>
       <div class="field">
         <label>관계/소속</label>
@@ -248,6 +267,10 @@
       <div class="field">
         <button id="addBtn" style="width:100%">등록</button>
       </div>
+    </div>
+    <div id="undoBar" class="undo-bar" style="display:none">
+      <span id="undoText"></span>
+      <button class="secondary" id="undoBtn">되돌리기</button>
     </div>
   </div>
 
@@ -286,12 +309,12 @@
     <table>
       <thead>
         <tr>
-          <th style="width:80px" title="클릭하여 수정">No.</th>
-          <th style="width:160px" title="클릭하여 수정">이름</th>
-          <th title="클릭하여 수정">관계/소속</th>
-          <th style="width:120px" title="클릭하여 수정">금액</th>
-          <th title="클릭하여 수정">비고</th>
-          <th style="width:140px">등록시각</th>
+          <th style="width:80px" data-sort="no" title="클릭하여 정렬">No. <span class="sort-arrow"></span></th>
+          <th style="width:160px" data-sort="name" title="클릭하여 정렬">이름 <span class="sort-arrow"></span></th>
+          <th data-sort="rel" title="클릭하여 정렬">관계/소속 <span class="sort-arrow"></span></th>
+          <th style="width:120px" data-sort="amount" title="클릭하여 정렬">금액 <span class="sort-arrow"></span></th>
+          <th data-sort="memo" title="클릭하여 정렬">비고 <span class="sort-arrow"></span></th>
+          <th style="width:140px" data-sort="createdAt" title="클릭하여 정렬">등록시각 <span class="sort-arrow"></span></th>
           <th class="no-print" style="width:70px">삭제</th>
         </tr>
       </thead>
@@ -369,11 +392,15 @@
     records = target.data || [];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     setNextNo();
+    hideActionBar();
     render();
     alert('복원되었습니다.');
   }
 
   let records = loadRecords();
+  let lastAction = null;
+  let sortField = 'no';
+  let sortDir = 'desc';
 
   const inputName = document.getElementById('inputName');
   const inputRel = document.getElementById('inputRel');
@@ -386,12 +413,16 @@
   const printBtn = document.getElementById('printBtn');
   const restoreBtn = document.getElementById('restoreBtn');
   const clearAllBtn = document.getElementById('clearAllBtn');
+  const undoBar = document.getElementById('undoBar');
+  const undoText = document.getElementById('undoText');
+  const undoBtn = document.getElementById('undoBtn');
   const statCount = document.getElementById('statCount');
   const statTotal = document.getElementById('statTotal');
   const statAvg = document.getElementById('statAvg');
   const nextNoLabel = document.getElementById('nextNoLabel');
   const statsBox = document.getElementById('statsBox');
   const statsToggleBtn = document.getElementById('statsToggleBtn');
+  const sortHeaders = document.querySelectorAll('th[data-sort]');
 
   const STATS_HIDDEN_KEY = 'chukuidae_stats_hidden';
 
@@ -403,6 +434,12 @@
 
   function formatNumber(n) {
     return Number(n || 0).toLocaleString('ko-KR');
+  }
+
+  function formatTime(ts) {
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
   }
 
   function getNextNo() {
@@ -437,6 +474,32 @@
     e.target.value = Number(next).toLocaleString('ko-KR');
   }
 
+  function compareRecords(a, b, field) {
+    if (field === 'amount' || field === 'createdAt') {
+      return Number(a[field] || 0) - Number(b[field] || 0);
+    }
+    if (field === 'no') {
+      const an = parseInt(a.no, 10);
+      const bn = parseInt(b.no, 10);
+      if (!isNaN(an) && !isNaN(bn)) return an - bn;
+      return String(a.no || '').localeCompare(String(b.no || ''), 'ko');
+    }
+    return String(a[field] || '').localeCompare(String(b[field] || ''), 'ko');
+  }
+
+  function updateSortHeaders() {
+    sortHeaders.forEach(th => {
+      const arrow = th.querySelector('.sort-arrow');
+      if (th.dataset.sort === sortField) {
+        th.classList.add('active');
+        arrow.textContent = sortDir === 'asc' ? '▲' : '▼';
+      } else {
+        th.classList.remove('active');
+        arrow.textContent = '';
+      }
+    });
+  }
+
   function render() {
     const keyword = searchBox.value.trim().toLowerCase();
     const filtered = records.filter(r => {
@@ -445,6 +508,8 @@
              (r.rel && r.rel.toLowerCase().includes(keyword));
     });
 
+    updateSortHeaders();
+
     tableBody.innerHTML = '';
     if (filtered.length === 0) {
       emptyMsg.style.display = 'block';
@@ -452,16 +517,16 @@
       emptyMsg.style.display = 'none';
       filtered
         .slice()
-        .sort((a, b) => b.createdAt - a.createdAt)
+        .sort((a, b) => (sortDir === 'asc' ? 1 : -1) * compareRecords(a, b, sortField))
         .forEach(r => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td class="editable-cell" data-id="${r.id}" data-field="no" title="클릭하여 수정">${escapeHtml(r.no || '-')}</td>
-            <td class="editable-cell" data-id="${r.id}" data-field="name" title="클릭하여 수정">${escapeHtml(r.name || '-')}</td>
+            <td class="editable-cell name" data-id="${r.id}" data-field="name" title="클릭하여 수정">${escapeHtml(r.name || '-')}</td>
             <td class="editable-cell" data-id="${r.id}" data-field="rel" title="클릭하여 수정">${escapeHtml(r.rel || '-')}</td>
             <td class="editable-cell amount" data-id="${r.id}" data-field="amount" title="클릭하여 수정">${formatNumber(r.amount)} 원</td>
             <td class="editable-cell memo" data-id="${r.id}" data-field="memo" title="클릭하여 수정">${escapeHtml(r.memo || '-')}</td>
-            <td>${new Date(r.createdAt).toLocaleString('ko-KR')}</td>
+            <td>${formatTime(r.createdAt)}</td>
             <td class="no-print"><button class="danger" data-id="${r.id}">삭제</button></td>
           `;
           tableBody.appendChild(tr);
@@ -496,15 +561,23 @@
       return;
     }
 
-    records.push({
+    const isDuplicate = records.some(r => r.name === name && Number(r.amount) === amount);
+    if (isDuplicate) {
+      if (!confirm(`이미 같은 이름(${name})과 같은 금액(${formatNumber(amount)}원)으로 등록된 내역이 있습니다.\n그래도 등록하시겠습니까?`)) {
+        return;
+      }
+    }
+
+    const newRecord = {
       id: Date.now().toString(36) + Math.random().toString(36).slice(2),
       no: getNextNo(),
       name,
-      rel: inputRel.value.trim(),
+      rel: inputRel.value.trim() || '-',
       amount,
       memo: '',
       createdAt: Date.now()
-    });
+    };
+    records.push(newRecord);
     saveRecords(records);
 
     inputName.value = '';
@@ -513,13 +586,34 @@
     setNextNo();
     inputName.focus();
 
+    lastAction = { type: 'add', id: newRecord.id };
+    showActionBar(`${newRecord.name}(${formatNumber(newRecord.amount)}원) 등록됨`);
+
     render();
   }
 
-  function deleteRecord(id) {
+  function showActionBar(text) {
+    undoText.textContent = text;
+    undoBar.style.display = 'flex';
+  }
+
+  function hideActionBar() {
+    lastAction = null;
+    undoBar.style.display = 'none';
+  }
+
+  function removeRecordById(id) {
     records = records.filter(r => r.id !== id);
     saveRecords(records);
     setNextNo();
+  }
+
+  function deleteRecord(id) {
+    const target = records.find(r => r.id === id);
+    if (!target) return;
+    removeRecordById(id);
+    lastAction = { type: 'delete', record: target };
+    showActionBar(`${target.name}(${formatNumber(target.amount)}원) 삭제됨`);
     render();
   }
 
@@ -554,6 +648,8 @@
       if (cancelled) return;
       if (field === 'amount') {
         record[field] = parseAmountDigits(input.value);
+      } else if (field === 'rel') {
+        record[field] = input.value.trim() || '-';
       } else {
         record[field] = input.value.trim();
       }
@@ -595,6 +691,18 @@
   }
 
   addBtn.addEventListener('click', addRecord);
+  undoBtn.addEventListener('click', () => {
+    if (!lastAction) return;
+    if (lastAction.type === 'add') {
+      removeRecordById(lastAction.id);
+    } else if (lastAction.type === 'delete') {
+      records.push(lastAction.record);
+      saveRecords(records);
+      setNextNo();
+    }
+    hideActionBar();
+    render();
+  });
   [inputName, inputRel, inputAmount].forEach(el => {
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter') addRecord();
@@ -608,6 +716,18 @@
     applyStatsVisibility();
   });
   searchBox.addEventListener('input', render);
+  sortHeaders.forEach(th => {
+    th.addEventListener('click', () => {
+      const field = th.dataset.sort;
+      if (sortField === field) {
+        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        sortField = field;
+        sortDir = 'asc';
+      }
+      render();
+    });
+  });
   exportBtn.addEventListener('click', exportCsv);
   printBtn.addEventListener('click', () => window.print());
   restoreBtn.addEventListener('click', restoreFromBackup);
@@ -617,6 +737,7 @@
       records = [];
       saveRecords(records);
       setNextNo();
+      hideActionBar();
       render();
     }
   });
