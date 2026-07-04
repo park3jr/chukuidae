@@ -96,7 +96,7 @@
   }
   .form-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 12px;
     align-items: end;
   }
@@ -187,7 +187,7 @@
   }
   .stats {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 14px;
     text-align: center;
   }
@@ -265,6 +265,10 @@
         <input type="text" id="inputAmount" inputmode="numeric" maxlength="12" placeholder="예: 50000 (.키 입력 시 000 추가)">
       </div>
       <div class="field">
+        <label>식권 매수</label>
+        <input type="text" id="inputTicket" inputmode="numeric" maxlength="3" placeholder="예: 2">
+      </div>
+      <div class="field">
         <button id="addBtn" style="width:100%">등록</button>
       </div>
     </div>
@@ -292,6 +296,10 @@
         <div class="label">평균 금액</div>
         <div class="value" id="statAvg">0 원</div>
       </div>
+      <div class="stat-box">
+        <div class="label">총 식권</div>
+        <div class="value" id="statTicket">0 장</div>
+      </div>
     </div>
   </div>
 
@@ -313,6 +321,7 @@
           <th style="width:160px" data-sort="name" title="클릭하여 정렬">이름 <span class="sort-arrow"></span></th>
           <th data-sort="rel" title="클릭하여 정렬">관계/소속 <span class="sort-arrow"></span></th>
           <th style="width:120px" data-sort="amount" title="클릭하여 정렬">금액 <span class="sort-arrow"></span></th>
+          <th style="width:90px" data-sort="ticket" title="클릭하여 정렬">식권 <span class="sort-arrow"></span></th>
           <th data-sort="memo" title="클릭하여 정렬">비고 <span class="sort-arrow"></span></th>
           <th style="width:140px" data-sort="createdAt" title="클릭하여 정렬">등록시각 <span class="sort-arrow"></span></th>
           <th class="no-print" style="width:70px">삭제</th>
@@ -405,6 +414,7 @@
   const inputName = document.getElementById('inputName');
   const inputRel = document.getElementById('inputRel');
   const inputAmount = document.getElementById('inputAmount');
+  const inputTicket = document.getElementById('inputTicket');
   const addBtn = document.getElementById('addBtn');
   const tableBody = document.getElementById('tableBody');
   const emptyMsg = document.getElementById('emptyMsg');
@@ -419,6 +429,7 @@
   const statCount = document.getElementById('statCount');
   const statTotal = document.getElementById('statTotal');
   const statAvg = document.getElementById('statAvg');
+  const statTicket = document.getElementById('statTicket');
   const nextNoLabel = document.getElementById('nextNoLabel');
   const statsBox = document.getElementById('statsBox');
   const statsToggleBtn = document.getElementById('statsToggleBtn');
@@ -475,7 +486,7 @@
   }
 
   function compareRecords(a, b, field) {
-    if (field === 'amount' || field === 'createdAt') {
+    if (field === 'amount' || field === 'createdAt' || field === 'ticket') {
       return Number(a[field] || 0) - Number(b[field] || 0);
     }
     if (field === 'no') {
@@ -525,6 +536,7 @@
             <td class="editable-cell name" data-id="${r.id}" data-field="name" title="클릭하여 수정">${escapeHtml(r.name || '-')}</td>
             <td class="editable-cell" data-id="${r.id}" data-field="rel" title="클릭하여 수정">${escapeHtml(r.rel || '-')}</td>
             <td class="editable-cell amount" data-id="${r.id}" data-field="amount" title="클릭하여 수정">${formatNumber(r.amount)} 원</td>
+            <td class="editable-cell" data-id="${r.id}" data-field="ticket" title="클릭하여 수정">${formatNumber(r.ticket)} 장</td>
             <td class="editable-cell memo" data-id="${r.id}" data-field="memo" title="클릭하여 수정">${escapeHtml(r.memo || '-')}</td>
             <td>${formatTime(r.createdAt)}</td>
             <td class="no-print"><button class="danger" data-id="${r.id}">삭제</button></td>
@@ -536,9 +548,11 @@
     const count = records.length;
     const total = records.reduce((sum, r) => sum + Number(r.amount || 0), 0);
     const avg = count > 0 ? Math.round(total / count) : 0;
+    const ticketTotal = records.reduce((sum, r) => sum + Number(r.ticket || 0), 0);
     statCount.textContent = `${count} 명`;
     statTotal.textContent = `${formatNumber(total)} 원`;
     statAvg.textContent = `${formatNumber(avg)} 원`;
+    statTicket.textContent = `${formatNumber(ticketTotal)} 장`;
   }
 
   function escapeHtml(str) {
@@ -550,6 +564,7 @@
   function addRecord() {
     const name = inputName.value.trim();
     const amount = parseAmountDigits(inputAmount.value);
+    const ticket = parseInt(inputTicket.value, 10) || 0;
     if (!name) {
       alert('이름을 입력해주세요.');
       inputName.focus();
@@ -574,6 +589,7 @@
       name,
       rel: inputRel.value.trim() || '-',
       amount,
+      ticket,
       memo: '',
       createdAt: Date.now()
     };
@@ -583,6 +599,7 @@
     inputName.value = '';
     inputRel.value = '';
     inputAmount.value = '';
+    inputTicket.value = '';
     setNextNo();
     inputName.focus();
 
@@ -634,6 +651,13 @@
         input.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
       });
       input.addEventListener('keydown', handleAmountDotShortcut);
+    } else if (field === 'ticket') {
+      input.inputMode = 'numeric';
+      input.maxLength = 3;
+      input.value = record[field] || '';
+      input.addEventListener('input', () => {
+        input.value = input.value.replace(/[^0-9]/g, '').slice(0, 3);
+      });
     } else {
       input.value = record[field] || '';
     }
@@ -648,6 +672,8 @@
       if (cancelled) return;
       if (field === 'amount') {
         record[field] = parseAmountDigits(input.value);
+      } else if (field === 'ticket') {
+        record[field] = parseInt(input.value, 10) || 0;
       } else if (field === 'rel') {
         record[field] = input.value.trim() || '-';
       } else {
@@ -666,7 +692,7 @@
   }
 
   function exportCsv() {
-    const header = ['No.', '이름', '관계/소속', '금액', '비고', '등록시각'];
+    const header = ['No.', '이름', '관계/소속', '금액', '식권', '비고', '등록시각'];
     const rows = records
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
@@ -675,6 +701,7 @@
         r.name,
         r.rel || '',
         r.amount,
+        r.ticket || 0,
         r.memo || '',
         new Date(r.createdAt).toLocaleString('ko-KR')
       ]);
@@ -703,13 +730,16 @@
     hideActionBar();
     render();
   });
-  [inputName, inputRel, inputAmount].forEach(el => {
+  [inputName, inputRel, inputAmount, inputTicket].forEach(el => {
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter') addRecord();
     });
   });
   inputAmount.addEventListener('input', handleAmountInput);
   inputAmount.addEventListener('keydown', handleAmountDotShortcut);
+  inputTicket.addEventListener('input', () => {
+    inputTicket.value = inputTicket.value.replace(/[^0-9]/g, '').slice(0, 3);
+  });
   statsToggleBtn.addEventListener('click', () => {
     const hidden = localStorage.getItem(STATS_HIDDEN_KEY) === '1';
     localStorage.setItem(STATS_HIDDEN_KEY, hidden ? '0' : '1');
