@@ -142,7 +142,7 @@
   }
   .form-grid {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 12px;
     align-items: end;
   }
@@ -263,7 +263,7 @@
   }
   .stats {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 14px;
     text-align: center;
   }
@@ -384,10 +384,6 @@
         <input type="text" id="inputAmount" inputmode="numeric" maxlength="12" placeholder="예: 50000 (.키 입력 시 000 추가)">
       </div>
       <div class="field">
-        <label>방문 인원</label>
-        <input type="text" id="inputAttendees" inputmode="numeric" maxlength="3" value="1" placeholder="예: 2">
-      </div>
-      <div class="field">
         <label>식권</label>
         <input type="text" id="inputAdultTicket" inputmode="numeric" maxlength="3" placeholder="예: 2">
       </div>
@@ -421,10 +417,6 @@
         <div class="value" id="statAvg">0 원</div>
       </div>
       <div class="stat-box">
-        <div class="label">방문 인원</div>
-        <div class="value" id="statAttendees">0 명</div>
-      </div>
-      <div class="stat-box">
         <div class="label">식권 잔여</div>
         <div class="value" id="statAdultTicket">200 장</div>
       </div>
@@ -452,7 +444,6 @@
           <th style="width:160px" data-sort="name" title="클릭하여 정렬">이름 <span class="sort-arrow"></span></th>
           <th data-sort="rel" title="클릭하여 정렬">관계/소속 <span class="sort-arrow"></span></th>
           <th style="width:120px" data-sort="amount" title="클릭하여 정렬">금액 <span class="sort-arrow"></span></th>
-          <th style="width:90px" data-sort="attendees" title="클릭하여 정렬">방문 <span class="sort-arrow"></span></th>
           <th style="width:90px" data-sort="adultTicket" title="클릭하여 정렬">식권 <span class="sort-arrow"></span></th>
           <th data-sort="memo" title="클릭하여 정렬">비고 <span class="sort-arrow"></span></th>
           <th style="width:140px" data-sort="createdAt" title="클릭하여 정렬">등록시각 <span class="sort-arrow"></span></th>
@@ -553,13 +544,11 @@
   function normalizeRecords(data) {
     if (!Array.isArray(data)) throw new Error('records must be an array');
     return data.map((r, index) => ({
-      ...r,
       id: String(r.id || (Date.now() + index).toString(36)),
       no: String(r.no || index + 1),
       name: String(r.name || '').trim(),
       rel: String(r.rel || '-'),
       amount: Math.max(0, Number(r.amount) || 0),
-      attendees: r.attendees == null ? 1 : Math.max(0, parseInt(r.attendees, 10) || 0),
       adultTicket: Math.max(0, parseInt(r.adultTicket ?? r.ticket, 10) || 0),
       memo: String(r.memo || ''),
       createdAt: Number(r.createdAt) || Date.now()
@@ -580,7 +569,6 @@
   const inputName = document.getElementById('inputName');
   const inputRel = document.getElementById('inputRel');
   const inputAmount = document.getElementById('inputAmount');
-  const inputAttendees = document.getElementById('inputAttendees');
   const inputAdultTicket = document.getElementById('inputAdultTicket');
   const addBtn = document.getElementById('addBtn');
   const tableBody = document.getElementById('tableBody');
@@ -599,7 +587,6 @@
   const statCount = document.getElementById('statCount');
   const statTotal = document.getElementById('statTotal');
   const statAvg = document.getElementById('statAvg');
-  const statAttendees = document.getElementById('statAttendees');
   const statAdultTicket = document.getElementById('statAdultTicket');
   const adultInventory = document.getElementById('adultInventory');
   const storageStatus = document.getElementById('storageStatus');
@@ -677,7 +664,7 @@
   }
 
   function compareRecords(a, b, field) {
-    if (['amount', 'createdAt', 'attendees', 'adultTicket'].includes(field)) {
+    if (['amount', 'createdAt', 'adultTicket'].includes(field)) {
       return Number(a[field] || 0) - Number(b[field] || 0);
     }
     if (field === 'no') {
@@ -727,7 +714,6 @@
             <td class="editable-cell name" data-id="${r.id}" data-field="name" title="클릭하여 수정">${escapeHtml(r.name || '-')}</td>
             <td class="editable-cell" data-id="${r.id}" data-field="rel" title="클릭하여 수정">${escapeHtml(r.rel || '-')}</td>
             <td class="editable-cell amount" data-id="${r.id}" data-field="amount" title="클릭하여 수정">${formatNumber(r.amount)} 원</td>
-            <td class="editable-cell" data-id="${r.id}" data-field="attendees" title="클릭하여 수정">${formatNumber(r.attendees)} 명</td>
             <td class="editable-cell" data-id="${r.id}" data-field="adultTicket" title="클릭하여 수정">${formatNumber(r.adultTicket)} 장</td>
             <td class="editable-cell memo" data-id="${r.id}" data-field="memo" title="클릭하여 수정">${escapeHtml(r.memo || '-')}</td>
             <td>${formatTime(r.createdAt)}</td>
@@ -740,12 +726,10 @@
     const count = records.length;
     const total = records.reduce((sum, r) => sum + Number(r.amount || 0), 0);
     const avg = count > 0 ? Math.round(total / count) : 0;
-    const attendeeTotal = records.reduce((sum, r) => sum + Number(r.attendees || 0), 0);
     const adultTotal = records.reduce((sum, r) => sum + Number(r.adultTicket || 0), 0);
     statCount.textContent = `${count} 건`;
     statTotal.textContent = `${formatNumber(total)} 원`;
     statAvg.textContent = `${formatNumber(avg)} 원`;
-    statAttendees.textContent = `${formatNumber(attendeeTotal)} 명`;
     statAdultTicket.textContent = `${formatNumber(inventory.adult - adultTotal)} 장`;
     statAdultTicket.classList.toggle('error', inventory.adult - adultTotal < 0);
   }
@@ -759,7 +743,6 @@
   function addRecord() {
     const name = inputName.value.trim();
     const amount = parseAmountDigits(inputAmount.value);
-    const attendees = parseInt(inputAttendees.value, 10) || 0;
     const adultTicket = parseInt(inputAdultTicket.value, 10) || 0;
     if (!name) {
       alert('이름을 입력해주세요.');
@@ -769,11 +752,6 @@
     if (!amount || amount <= 0) {
       alert('금액을 올바르게 입력해주세요.');
       inputAmount.focus();
-      return;
-    }
-    if (attendees <= 0) {
-      alert('방문 인원을 1명 이상 입력해주세요.');
-      inputAttendees.focus();
       return;
     }
 
@@ -790,7 +768,6 @@
       name,
       rel: inputRel.value.trim() || '-',
       amount,
-      attendees,
       adultTicket,
       memo: '',
       createdAt: Date.now()
@@ -801,7 +778,6 @@
     inputName.value = '';
     inputRel.value = '';
     inputAmount.value = '';
-    inputAttendees.value = '1';
     inputAdultTicket.value = '';
     setNextNo();
     inputName.focus();
@@ -856,7 +832,7 @@
         input.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
       });
       input.addEventListener('keydown', handleAmountDotShortcut);
-    } else if (['attendees', 'adultTicket', 'no'].includes(field)) {
+    } else if (['adultTicket', 'no'].includes(field)) {
       input.inputMode = 'numeric';
       input.maxLength = 3;
       input.value = record[field] || '';
@@ -878,7 +854,7 @@
       const previousValue = record[field];
       if (field === 'amount') {
         record[field] = parseAmountDigits(input.value);
-      } else if (['attendees', 'adultTicket'].includes(field)) {
+      } else if (field === 'adultTicket') {
         record[field] = parseInt(input.value, 10) || 0;
       } else if (field === 'no') {
         record[field] = input.value.trim();
@@ -890,7 +866,6 @@
       let error = '';
       if (field === 'name' && !record.name) error = '이름은 비워둘 수 없습니다.';
       if (field === 'amount' && record.amount <= 0) error = '금액은 0원보다 커야 합니다.';
-      if (field === 'attendees' && record.attendees <= 0) error = '방문 인원은 1명 이상이어야 합니다.';
       if (field === 'no' && (!/^\d+$/.test(record.no) || Number(record.no) <= 0)) error = '번호는 1 이상의 숫자여야 합니다.';
       if (field === 'no' && records.some(r => r.id !== id && r.no === record.no)) error = '이미 사용 중인 번호입니다.';
       if (error) {
@@ -912,7 +887,7 @@
   }
 
   function exportCsv() {
-    const header = ['No.', '이름', '관계/소속', '금액', '방문 인원', '식권', '비고', '등록시각'];
+    const header = ['No.', '이름', '관계/소속', '금액', '식권', '비고', '등록시각'];
     const rows = records
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
@@ -921,7 +896,6 @@
         r.name,
         r.rel || '',
         r.amount,
-        r.attendees || 0,
         r.adultTicket || 0,
         r.memo || '',
         new Date(r.createdAt).toLocaleString('ko-KR')
@@ -1002,14 +976,14 @@
     hideActionBar();
     render();
   });
-  [inputName, inputRel, inputAmount, inputAttendees, inputAdultTicket].forEach(el => {
+  [inputName, inputRel, inputAmount, inputAdultTicket].forEach(el => {
     el.addEventListener('keydown', e => {
       if (e.key === 'Enter') addRecord();
     });
   });
   inputAmount.addEventListener('input', handleAmountInput);
   inputAmount.addEventListener('keydown', handleAmountDotShortcut);
-  [inputAttendees, inputAdultTicket].forEach(input => input.addEventListener('input', () => {
+  [inputAdultTicket].forEach(input => input.addEventListener('input', () => {
     input.value = input.value.replace(/[^0-9]/g, '').slice(0, 3);
   }));
   [adultInventory].forEach(input => input.addEventListener('change', () => {
