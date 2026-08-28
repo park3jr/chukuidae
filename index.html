@@ -428,7 +428,7 @@
     <div class="toolbar no-print">
       <input type="text" id="searchBox" placeholder="이름/관계 검색">
       <div class="btn-row">
-        <button class="secondary" id="exportBtn">CSV 내보내기</button>
+        <button class="secondary" id="exportBtn">엑셀 다운로드</button>
         <button class="secondary" id="jsonExportBtn">JSON 백업</button>
         <button class="secondary" id="jsonImportBtn">JSON 복원</button>
         <input type="file" id="jsonImportFile" accept="application/json,.json" hidden>
@@ -887,28 +887,51 @@
     });
   }
 
-  function exportCsv() {
+  function escapeXml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
+    }[char]));
+  }
+
+  function exportExcel() {
     const header = ['No.', '이름', '관계/소속', '금액', '식권', '비고', '등록시각'];
     const rows = records
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
       .map(r => [
-        r.no || '',
-        r.name,
-        r.rel || '',
-        r.amount,
-        r.adultTicket || 0,
-        r.memo || '',
-        new Date(r.createdAt).toLocaleString('ko-KR')
+        [r.no || '', 'String'],
+        [r.name, 'String'],
+        [r.rel || '', 'String'],
+        [Number(r.amount) || 0, 'Number', 'Number'],
+        [Number(r.adultTicket) || 0, 'Number', 'Number'],
+        [r.memo || '', 'String'],
+        [new Date(r.createdAt).toLocaleString('ko-KR'), 'String']
       ]);
-    const csv = [header, ...rows]
-      .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(','))
-      .join('\r\n');
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const makeCell = ([value, type, style]) =>
+      `<Cell${style ? ` ss:StyleID="${style}"` : ''}><Data ss:Type="${type}">${escapeXml(value)}</Data></Cell>`;
+    const headerXml = header.map(value => makeCell([value, 'String', 'Header'])).join('');
+    const rowsXml = rows.map(row => `<Row>${row.map(makeCell).join('')}</Row>`).join('');
+    const workbook = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Styles>
+  <Style ss:ID="Default"><Alignment ss:Vertical="Center"/><Font ss:FontName="맑은 고딕" ss:Size="10"/></Style>
+  <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#E7DAF6" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>
+  <Style ss:ID="Number"><NumberFormat ss:Format="#,##0"/></Style>
+ </Styles>
+ <Worksheet ss:Name="축의대 내역"><Table>
+  <Column ss:Width="55"/><Column ss:Width="100"/><Column ss:Width="110"/><Column ss:Width="90"/><Column ss:Width="65"/><Column ss:Width="150"/><Column ss:Width="130"/>
+  <Row>${headerXml}</Row>${rowsXml}
+ </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions></Worksheet>
+</Workbook>`;
+    const blob = new Blob(['\ufeff' + workbook], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `축의대_내역_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `축의대_내역_${new Date().toISOString().slice(0, 10)}.xls`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -1016,7 +1039,7 @@
       render();
     });
   });
-  exportBtn.addEventListener('click', exportCsv);
+  exportBtn.addEventListener('click', exportExcel);
   jsonExportBtn.addEventListener('click', downloadJsonBackup);
   jsonImportBtn.addEventListener('click', () => jsonImportFile.click());
   jsonImportFile.addEventListener('change', () => {
