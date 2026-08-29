@@ -457,6 +457,7 @@
 
 </div>
 
+<script src="./xlsx.full.min.js"></script>
 <script>
 (function () {
   const STORAGE_KEY = 'chukuidae_records';
@@ -887,53 +888,38 @@
     });
   }
 
-  function escapeXml(value) {
-    return String(value ?? '').replace(/[&<>"']/g, char => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;'
-    }[char]));
-  }
-
   function exportExcel() {
+    if (typeof XLSX === 'undefined') {
+      alert('엑셀 파일 생성 기능을 불러오지 못했습니다. 페이지를 새로고침한 뒤 다시 시도해주세요.');
+      return;
+    }
     const header = ['No.', '이름', '관계/소속', '금액', '식권', '비고', '등록시각'];
     const rows = records
       .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
       .map(r => [
-        [r.no || '', 'String'],
-        [r.name, 'String'],
-        [r.rel || '', 'String'],
-        [Number(r.amount) || 0, 'Number', 'Number'],
-        [Number(r.adultTicket) || 0, 'Number', 'Number'],
-        [r.memo || '', 'String'],
-        [new Date(r.createdAt).toLocaleString('ko-KR'), 'String']
+        r.no || '',
+        r.name,
+        r.rel || '',
+        Number(r.amount) || 0,
+        Number(r.adultTicket) || 0,
+        r.memo || '',
+        new Date(r.createdAt)
       ]);
-    const makeCell = ([value, type, style]) =>
-      `<Cell${style ? ` ss:StyleID="${style}"` : ''}><Data ss:Type="${type}">${escapeXml(value)}</Data></Cell>`;
-    const headerXml = header.map(value => makeCell([value, 'String', 'Header'])).join('');
-    const rowsXml = rows.map(row => `<Row>${row.map(makeCell).join('')}</Row>`).join('');
-    const workbook = `<?xml version="1.0" encoding="UTF-8"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:o="urn:schemas-microsoft-com:office:office"
- xmlns:x="urn:schemas-microsoft-com:office:excel"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Styles>
-  <Style ss:ID="Default"><Alignment ss:Vertical="Center"/><Font ss:FontName="맑은 고딕" ss:Size="10"/></Style>
-  <Style ss:ID="Header"><Font ss:Bold="1"/><Interior ss:Color="#E7DAF6" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center"/></Style>
-  <Style ss:ID="Number"><NumberFormat ss:Format="#,##0"/></Style>
- </Styles>
- <Worksheet ss:Name="축의대 내역"><Table>
-  <Column ss:Width="55"/><Column ss:Width="100"/><Column ss:Width="110"/><Column ss:Width="90"/><Column ss:Width="65"/><Column ss:Width="150"/><Column ss:Width="130"/>
-  <Row>${headerXml}</Row>${rowsXml}
- </Table><WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>1</SplitHorizontal><TopRowBottomPane>1</TopRowBottomPane></WorksheetOptions></Worksheet>
-</Workbook>`;
-    const blob = new Blob(['\ufeff' + workbook], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `축의대_내역_${new Date().toISOString().slice(0, 10)}.xls`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const worksheet = XLSX.utils.aoa_to_sheet([header, ...rows], { cellDates: true });
+    worksheet['!cols'] = [
+      { wch: 8 }, { wch: 16 }, { wch: 18 }, { wch: 14 },
+      { wch: 10 }, { wch: 24 }, { wch: 22 }
+    ];
+    worksheet['!autofilter'] = { ref: `A1:G${rows.length + 1}` };
+    for (let row = 2; row <= rows.length + 1; row += 1) {
+      if (worksheet[`D${row}`]) worksheet[`D${row}`].z = '#,##0';
+      if (worksheet[`E${row}`]) worksheet[`E${row}`].z = '#,##0';
+      if (worksheet[`G${row}`]) worksheet[`G${row}`].z = 'yyyy-mm-dd hh:mm:ss';
+    }
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, '축의대 내역');
+    XLSX.writeFile(workbook, `축의대_내역_${new Date().toISOString().slice(0, 10)}.xlsx`, { compression: true });
   }
 
   function downloadJsonBackup() {
